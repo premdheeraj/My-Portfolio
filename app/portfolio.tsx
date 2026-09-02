@@ -1,9 +1,19 @@
 'use client';
 
 import { ArrowDownRight, Mail, Moon, Sun } from 'lucide-react';
+import { motion, MotionConfig } from 'framer-motion';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
+import { OrbitalDemand } from '@/components/orbital-demand';
 
 const MetalScene = lazy(() =>
   import('@/components/metal-scene').then((module) => ({ default: module.MetalScene })),
@@ -67,6 +77,52 @@ function getInitialTheme(): Theme {
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
+const cardMotion = {
+  rest: { y: 0, scale: 1 },
+  hover: {
+    y: -10,
+    scale: 1.008,
+    transition: { type: 'spring' as const, stiffness: 250, damping: 24 },
+  },
+};
+
+const liquidMotion = {
+  rest: { opacity: 0.12, x: '22%', rotate: -5, scaleX: 0.92 },
+  hover: {
+    opacity: 0.78,
+    x: ['18%', '-8%', '10%'],
+    rotate: [-5, 2, -3],
+    scaleX: [0.92, 1.08, 0.98],
+    transition: { duration: 4.8, repeat: Infinity, ease: 'easeInOut' as const },
+  },
+};
+
+function updateCardLight(event: ReactPointerEvent<HTMLElement>) {
+  const bounds = event.currentTarget.getBoundingClientRect();
+  const x = ((event.clientX - bounds.left) / bounds.width) * 100;
+  const y = ((event.clientY - bounds.top) / bounds.height) * 100;
+  event.currentTarget.style.setProperty('--mx', `${x}%`);
+  event.currentTarget.style.setProperty('--my', `${y}%`);
+}
+
+function LiquidCardLayers({ featured = false }: { featured?: boolean }) {
+  return (
+    <>
+      <div className="card-grid-layer" aria-hidden="true" />
+      <motion.div className="glass-prism" variants={{ rest: { opacity: 0.18 }, hover: { opacity: 0.72 } }} aria-hidden="true" />
+      <motion.div className="liquid-metal-band" variants={liquidMotion} aria-hidden="true" />
+      <motion.div
+        className={`liquid-metal-trace${featured ? ' featured-trace' : ''}`}
+        variants={{
+          rest: { opacity: 0.18, scaleX: 0.22 },
+          hover: { opacity: 0.92, scaleX: 1, transition: { duration: 1.1, ease: 'easeOut' } },
+        }}
+        aria-hidden="true"
+      />
+    </>
+  );
+}
+
 export default function Home() {
   const root = useRef<HTMLElement>(null);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
@@ -122,49 +178,6 @@ export default function Home() {
           scrollTrigger: { trigger: '.marquee', start: 'top bottom', end: 'bottom top', scrub: 1 },
         });
 
-        const cardCleanups: Array<() => void> = [];
-        gsap.utils.toArray<HTMLElement>('.motion-card').forEach((card) => {
-          const sheen = card.querySelector<HTMLElement>('.metal-sheen');
-          const metal = card.querySelector<HTMLElement>('.card-metal');
-
-          const handleMove = (event: PointerEvent) => {
-            const bounds = card.getBoundingClientRect();
-            const x = (event.clientX - bounds.left) / bounds.width;
-            const y = (event.clientY - bounds.top) / bounds.height;
-            const tiltX = (0.5 - y) * 5;
-            const tiltY = (x - 0.5) * 5;
-            card.style.setProperty('--mx', `${x * 100}%`);
-            card.style.setProperty('--my', `${y * 100}%`);
-            gsap.to(card, { rotateX: tiltX, rotateY: tiltY, y: -7, duration: 0.45, ease: 'power2.out' });
-            if (sheen) gsap.to(sheen, { opacity: 0.82, duration: 0.25 });
-            if (metal) {
-              gsap.to(metal, {
-                x: (x - 0.5) * 34,
-                y: (y - 0.5) * 26,
-                rotate: (x - 0.5) * 16,
-                scale: 1.08,
-                opacity: 0.88,
-                duration: 0.55,
-                ease: 'power2.out',
-              });
-            }
-          };
-
-          const handleLeave = () => {
-            gsap.to(card, { rotateX: 0, rotateY: 0, y: 0, duration: 0.65, ease: 'elastic.out(1, 0.55)' });
-            if (sheen) gsap.to(sheen, { opacity: 0, duration: 0.4 });
-            if (metal) gsap.to(metal, { x: 0, y: 0, rotate: 0, scale: 1, opacity: 0, duration: 0.5 });
-          };
-
-          card.addEventListener('pointermove', handleMove);
-          card.addEventListener('pointerleave', handleLeave);
-          cardCleanups.push(() => {
-            card.removeEventListener('pointermove', handleMove);
-            card.removeEventListener('pointerleave', handleLeave);
-          });
-        });
-
-        return () => cardCleanups.forEach((cleanup) => cleanup());
       });
       return () => media.revert();
     }, root);
@@ -172,6 +185,7 @@ export default function Home() {
   }, []);
 
   return (
+    <MotionConfig reducedMotion="user">
     <main ref={root} className="site-shell" data-theme={theme}>
       <div className="global-grid" aria-hidden="true" />
       <header className="nav-reveal site-nav">
@@ -271,23 +285,17 @@ export default function Home() {
           </p>
         </div>
 
-        <article className="featured-project motion-card" data-reveal>
-          <div className="card-grid-layer" aria-hidden="true" />
-          <div className="metal-sheen" aria-hidden="true" />
-          <div className="card-metal featured-metal" aria-hidden="true" />
-          <div className="featured-visual" aria-hidden="true">
-            <div className="signal-orbit orbit-one" />
-            <div className="signal-orbit orbit-two" />
-            <div className="signal-core">
-              <span>HOSPITAL</span>
-              <strong>DEMAND</strong>
-              <small>FORECAST / 01</small>
-            </div>
-            <div className="signal-data">
-              <span>CASE LOAD</span>
-              <span>RESOURCE INDEX</span>
-              <span>CAPACITY SIGNAL</span>
-            </div>
+        <motion.article
+          className="featured-project glass-card"
+          data-reveal
+          initial="rest"
+          whileHover="hover"
+          variants={cardMotion}
+          onPointerMove={updateCardLight}
+        >
+          <LiquidCardLayers featured />
+          <div className="featured-visual">
+            <OrbitalDemand />
           </div>
 
           <div className="featured-content">
@@ -295,7 +303,12 @@ export default function Home() {
               <span>Built project · 2023–2024</span>
               <span>Healthcare AI</span>
             </div>
-            <h3>COVID-19 CASE MONITORING &amp; HOSPITAL RESOURCE PREDICTION</h3>
+            <h3
+              className="liquid-title project-liquid-title"
+              data-text="COVID-19 CASE MONITORING & HOSPITAL RESOURCE PREDICTION"
+            >
+              COVID-19 CASE MONITORING &amp; HOSPITAL RESOURCE PREDICTION
+            </h3>
             <p>
               An AI-enabled web application designed to monitor patient health data and support
               forward planning for hospital resources. The work connects health signals with a
@@ -308,7 +321,7 @@ export default function Home() {
               <li>Git workflow</li>
             </ul>
           </div>
-        </article>
+        </motion.article>
 
         <div className="concept-intro" data-reveal>
           <p className="eyebrow">AI product concepts</p>
@@ -320,10 +333,15 @@ export default function Home() {
 
         <div className="concept-grid">
           {concepts.map((concept, index) => (
-            <article className="concept-card motion-card" key={concept.name}>
-              <div className="card-grid-layer" aria-hidden="true" />
-              <div className="metal-sheen" aria-hidden="true" />
-              <div className="card-metal" aria-hidden="true" />
+            <motion.article
+              className="concept-card glass-card"
+              key={concept.name}
+              initial="rest"
+              whileHover="hover"
+              variants={cardMotion}
+              onPointerMove={updateCardLight}
+            >
+              <LiquidCardLayers />
               <div className="concept-topline">
                 <span>{String(index + 1).padStart(2, '0')}</span>
                 <span>Concept / R&amp;D</span>
@@ -332,10 +350,10 @@ export default function Home() {
                 {concept.accent}
               </div>
               <p className="concept-type">{concept.type}</p>
-              <h3>{concept.name}</h3>
+              <h3 className="liquid-title" data-text={concept.name}>{concept.name}</h3>
               <p className="concept-summary">{concept.summary}</p>
               <p className="concept-focus">{concept.focus}</p>
-            </article>
+            </motion.article>
           ))}
         </div>
       </section>
@@ -399,18 +417,24 @@ export default function Home() {
         </div>
         <div className="expertise-grid">
           {expertise.map(([title, ...items], index) => (
-            <article className="expertise-card motion-card" key={title} data-reveal>
-              <div className="card-grid-layer" aria-hidden="true" />
-              <div className="metal-sheen" aria-hidden="true" />
-              <div className="card-metal" aria-hidden="true" />
+            <motion.article
+              className="expertise-card glass-card"
+              key={title}
+              data-reveal
+              initial="rest"
+              whileHover="hover"
+              variants={cardMotion}
+              onPointerMove={updateCardLight}
+            >
+              <LiquidCardLayers />
               <div className="expertise-number">0{index + 1}</div>
-              <h3>{title}</h3>
+              <h3 className="liquid-title" data-text={title}>{title}</h3>
               <ul>
                 {items.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ul>
-            </article>
+            </motion.article>
           ))}
         </div>
       </section>
@@ -443,5 +467,6 @@ export default function Home() {
         </div>
       </footer>
     </main>
+    </MotionConfig>
   );
 }

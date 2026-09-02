@@ -12,7 +12,7 @@
     "dev:github": "vite --config vite.github.config.ts --host 0.0.0.0",
     "build:github": "tsc --noEmit && vite build --config vite.github.config.ts",
     "start": "wrangler dev --config dist/server/wrangler.json",
-    "lint": "oxlint main.tsx app/portfolio.tsx components/metal-scene.tsx",
+    "lint": "oxlint main.tsx app/portfolio.tsx components/metal-scene.tsx components/orbital-demand.tsx",
     "format": "oxfmt"
   },
   "dependencies": {
@@ -24,6 +24,7 @@
     "cmdk": "1.1.1",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.2",
+    "framer-motion": "^13.1.1",
     "gsap": "^3.13.0",
     "input-otp": "1.4.2",
     "lucide-react": "1.31.0",
