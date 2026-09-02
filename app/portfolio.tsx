@@ -1,9 +1,9 @@
 'use client';
 
-import { ArrowDownRight, Mail } from 'lucide-react';
+import { ArrowDownRight, Mail, Moon, Sun } from 'lucide-react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { lazy, Suspense, useLayoutEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 const MetalScene = lazy(() =>
   import('@/components/metal-scene').then((module) => ({ default: module.MetalScene })),
@@ -58,8 +58,29 @@ const expertise = [
   ['Product craft', 'Problem framing', 'System thinking', 'Debugging', 'Accessible UI'],
 ];
 
+type Theme = 'dark' | 'light';
+
+function getInitialTheme(): Theme {
+  if (typeof window === 'undefined') return 'dark';
+  const savedTheme = window.localStorage.getItem('portfolio-theme');
+  if (savedTheme === 'dark' || savedTheme === 'light') return savedTheme;
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
 export default function Home() {
   const root = useRef<HTMLElement>(null);
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    window.localStorage.setItem('portfolio-theme', theme);
+    gsap.fromTo(
+      '.theme-toggle-icon',
+      { rotate: -40, scale: 0.45, opacity: 0 },
+      { rotate: 0, scale: 1, opacity: 1, duration: 0.42, ease: 'back.out(2)' },
+    );
+  }, [theme]);
 
   useLayoutEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
@@ -100,6 +121,50 @@ export default function Home() {
           ease: 'none',
           scrollTrigger: { trigger: '.marquee', start: 'top bottom', end: 'bottom top', scrub: 1 },
         });
+
+        const cardCleanups: Array<() => void> = [];
+        gsap.utils.toArray<HTMLElement>('.motion-card').forEach((card) => {
+          const sheen = card.querySelector<HTMLElement>('.metal-sheen');
+          const metal = card.querySelector<HTMLElement>('.card-metal');
+
+          const handleMove = (event: PointerEvent) => {
+            const bounds = card.getBoundingClientRect();
+            const x = (event.clientX - bounds.left) / bounds.width;
+            const y = (event.clientY - bounds.top) / bounds.height;
+            const tiltX = (0.5 - y) * 5;
+            const tiltY = (x - 0.5) * 5;
+            card.style.setProperty('--mx', `${x * 100}%`);
+            card.style.setProperty('--my', `${y * 100}%`);
+            gsap.to(card, { rotateX: tiltX, rotateY: tiltY, y: -7, duration: 0.45, ease: 'power2.out' });
+            if (sheen) gsap.to(sheen, { opacity: 0.82, duration: 0.25 });
+            if (metal) {
+              gsap.to(metal, {
+                x: (x - 0.5) * 34,
+                y: (y - 0.5) * 26,
+                rotate: (x - 0.5) * 16,
+                scale: 1.08,
+                opacity: 0.88,
+                duration: 0.55,
+                ease: 'power2.out',
+              });
+            }
+          };
+
+          const handleLeave = () => {
+            gsap.to(card, { rotateX: 0, rotateY: 0, y: 0, duration: 0.65, ease: 'elastic.out(1, 0.55)' });
+            if (sheen) gsap.to(sheen, { opacity: 0, duration: 0.4 });
+            if (metal) gsap.to(metal, { x: 0, y: 0, rotate: 0, scale: 1, opacity: 0, duration: 0.5 });
+          };
+
+          card.addEventListener('pointermove', handleMove);
+          card.addEventListener('pointerleave', handleLeave);
+          cardCleanups.push(() => {
+            card.removeEventListener('pointermove', handleMove);
+            card.removeEventListener('pointerleave', handleLeave);
+          });
+        });
+
+        return () => cardCleanups.forEach((cleanup) => cleanup());
       });
       return () => media.revert();
     }, root);
@@ -107,7 +172,8 @@ export default function Home() {
   }, []);
 
   return (
-    <main ref={root} className="site-shell">
+    <main ref={root} className="site-shell" data-theme={theme}>
+      <div className="global-grid" aria-hidden="true" />
       <header className="nav-reveal site-nav">
         <a className="wordmark" href="#top" aria-label="Dheeraj home">
           DKP<span>®</span>
@@ -120,13 +186,25 @@ export default function Home() {
           <a href="#work">Work</a>
           <a href="#about">About</a>
           <a href="#contact">Contact</a>
+          <button
+            className="theme-toggle"
+            type="button"
+            onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+            aria-label={`Switch to ${theme === 'dark' ? 'day' : 'dark'} mode`}
+            title={`Switch to ${theme === 'dark' ? 'day' : 'dark'} mode`}
+          >
+            <span className="theme-toggle-icon" aria-hidden="true">
+              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            </span>
+            <span>{theme === 'dark' ? 'Day' : 'Dark'}</span>
+          </button>
         </nav>
       </header>
 
       <section id="top" className="hero-section">
         <div className="hero-grid" aria-hidden="true" />
         <Suspense fallback={<div className="metal-fallback" aria-hidden="true" />}>
-          <MetalScene />
+          <MetalScene theme={theme} />
         </Suspense>
 
         <div className="hero-content">
@@ -193,7 +271,10 @@ export default function Home() {
           </p>
         </div>
 
-        <article className="featured-project" data-reveal>
+        <article className="featured-project motion-card" data-reveal>
+          <div className="card-grid-layer" aria-hidden="true" />
+          <div className="metal-sheen" aria-hidden="true" />
+          <div className="card-metal featured-metal" aria-hidden="true" />
           <div className="featured-visual" aria-hidden="true">
             <div className="signal-orbit orbit-one" />
             <div className="signal-orbit orbit-two" />
@@ -239,7 +320,10 @@ export default function Home() {
 
         <div className="concept-grid">
           {concepts.map((concept, index) => (
-            <article className="concept-card" key={concept.name}>
+            <article className="concept-card motion-card" key={concept.name}>
+              <div className="card-grid-layer" aria-hidden="true" />
+              <div className="metal-sheen" aria-hidden="true" />
+              <div className="card-metal" aria-hidden="true" />
               <div className="concept-topline">
                 <span>{String(index + 1).padStart(2, '0')}</span>
                 <span>Concept / R&amp;D</span>
@@ -315,7 +399,10 @@ export default function Home() {
         </div>
         <div className="expertise-grid">
           {expertise.map(([title, ...items], index) => (
-            <article key={title} data-reveal>
+            <article className="expertise-card motion-card" key={title} data-reveal>
+              <div className="card-grid-layer" aria-hidden="true" />
+              <div className="metal-sheen" aria-hidden="true" />
+              <div className="card-metal" aria-hidden="true" />
               <div className="expertise-number">0{index + 1}</div>
               <h3>{title}</h3>
               <ul>

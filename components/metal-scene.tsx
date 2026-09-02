@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
-export function MetalScene() {
+export function MetalScene({ theme }: { theme: 'dark' | 'light' }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export function MetalScene() {
 
     const geometry = new THREE.TorusKnotGeometry(1.28, 0.43, 220, 32, 2, 3);
     const material = new THREE.MeshPhysicalMaterial({
-      color: 0xc7ccd2,
+      color: theme === 'dark' ? 0xc7ccd2 : 0x8c9294,
       metalness: 1,
       roughness: 0.17,
       clearcoat: 1,
@@ -37,19 +37,29 @@ export function MetalScene() {
 
     const wire = new THREE.Mesh(
       new THREE.TorusKnotGeometry(1.82, 0.008, 260, 8, 3, 5),
-      new THREE.MeshBasicMaterial({ color: 0xcaff61, transparent: true, opacity: 0.72 }),
+      new THREE.MeshBasicMaterial({
+        color: theme === 'dark' ? 0xcaff61 : 0x6b970e,
+        transparent: true,
+        opacity: 0.72,
+      }),
     );
     wire.rotation.set(0.7, -0.4, 0.2);
     group.add(wire);
 
-    scene.add(new THREE.HemisphereLight(0xf0f5ff, 0x080909, 2.1));
-    const key = new THREE.PointLight(0xffffff, 55, 20);
+    scene.add(
+      new THREE.HemisphereLight(
+        0xf0f5ff,
+        theme === 'dark' ? 0x080909 : 0xb7bbb4,
+        theme === 'dark' ? 2.1 : 2.8,
+      ),
+    );
+    const key = new THREE.PointLight(0xffffff, theme === 'dark' ? 55 : 38, 20);
     key.position.set(3, 3, 5);
     scene.add(key);
-    const accent = new THREE.PointLight(0xbfff4f, 42, 18);
+    const accent = new THREE.PointLight(0xbfff4f, theme === 'dark' ? 42 : 30, 18);
     accent.position.set(-3, -2, 3);
     scene.add(accent);
-    const blue = new THREE.PointLight(0x7f93ff, 28, 15);
+    const blue = new THREE.PointLight(0x7f93ff, theme === 'dark' ? 28 : 22, 15);
     blue.position.set(2, -3, 1);
     scene.add(blue);
 
@@ -97,7 +107,7 @@ export function MetalScene() {
       (wire.material as THREE.Material).dispose();
       renderer.dispose();
     };
-  }, []);
+  }, [theme]);
 
   return <canvas ref={canvasRef} className="metal-canvas" aria-hidden="true" />;
 }
